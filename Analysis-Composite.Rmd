@@ -1,0 +1,230 @@
+---
+title: "Analysis-Composite"
+author: "Qitian (Jason) Hu"
+date: "7/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(openxlsx)
+library(lubridate)
+library(knitr)
+
+theme_QitianHu <- theme_minimal() +
+  theme(axis.title.x = element_text(face = "bold", size = 12),
+  axis.text.x = element_text(face = "bold", size = 9),
+  axis.text.y = element_text(face = "bold", size = 9),
+  axis.title.y = element_text(face = "bold", size = 12),
+  plot.title = element_text(hjust = 0.5, size = 15, face ='bold'),
+  plot.subtitle = element_text(hjust = 0.5, color = "black", face = "bold"),
+  legend.title = element_text(face = "bold"),
+  text = element_text(family='Kai')
+    )
+```
+
+
+
+```{r import, tidy, and check data validity}
+# Cannot turn date the numeric, because Jan and Oct would be the same
+# Spent a lot of time here
+data_comp <- read.xlsx("*Aggregate-wrangled-V1.xlsx", sheet=1) %>% 
+  select(c(city, time, composite_index)) %>% 
+  transform(composite_index = as.numeric(composite_index)) %>% 
+  transform(city = ifelse(
+    substr(city, nchar(city),nchar(city)) == "*", 
+    substr(city, 1 ,nchar(city)-1), 
+    city)) %>% 
+  transform(city = ifelse(city == "销江", "镇江", city)) %>% 
+  transform(city = ifelse(city == "循州", "衢州", city)) %>% 
+  transform(city = ifelse(city == "准安", "淮安", city)) %>% 
+  transform(city = ifelse(city == "红门", "江门", city)) %>% 
+  mutate(time = ymd(paste(time, '.5', sep = '')))
+
+
+data_comp %>% 
+  group_by(time) %>% 
+  summarise(avg_composite_index = mean(composite_index)) %>% 
+  ggplot(aes(time, avg_composite_index)) +
+    geom_col() +
+    geom_smooth() +
+    labs(x = 'time', 
+         y = 'Average composite index', 
+         title = 'Average composite index by time') +
+    theme_QitianHu
+
+```
+
+It turns out that the number of data of each city is highly varied.
+This increases the difficulty analyzing the data
+
+```{r}
+data_comp %>% 
+  group_by(city) %>% 
+  summarise(avg_composite_index = mean(composite_index)) %>% 
+  top_n(10) %>% 
+  mutate(city = fct_reorder(city, desc(avg_composite_index))) %>% 
+  ggplot(aes(city, avg_composite_index)) +
+    geom_col() +
+    geom_smooth() +
+    coord_flip() +
+    labs(x = 'city',
+         y = 'All-time Average composite index',
+         title = 'Top 10 Polluted Cities') +
+    theme_QitianHu
+
+
+data_comp %>% 
+  group_by(city) %>% 
+  summarise(avg_composite_index = mean(composite_index)) %>% 
+  top_n(-10) %>% 
+  mutate(city = fct_reorder(city, desc(avg_composite_index))) %>% 
+  ggplot(aes(city, avg_composite_index)) +
+    geom_col() +
+    geom_smooth() +
+    coord_flip() +
+    labs(x = 'city',
+         y = 'All-time Average composite index',
+         title = 'Top 10 Cleanest Cities') +
+    theme_QitianHu
+
+```
+
+
+
+```{r 进步最大和最小}
+
+data_comp %>% 
+  mutate(UTC_time = as.POSIXct(time) %>%  # get a unified date to calculate gradient
+           as.numeric()) %>% 
+  group_by(city) %>% 
+  # summarise(avg_composite_index = mean(composite_index),) %>% 
+  summarise(progress = -cor(UTC_time, composite_index)) %>% 
+  top_n(7) %>% 
+  mutate(city = fct_reorder(city, desc(progress))) %>% 
+  ggplot(aes(city, progress)) +
+    geom_col() +
+    coord_flip() +
+    labs(x = 'city',
+         y = 'coeff of linear regression between UTC time and composite index',
+         title = '空气质量进步最大的十个城市') +
+    theme_QitianHu
+  
+
+
+data_comp %>% 
+  mutate(UTC_time = as.POSIXct(time) %>%  # get a unified date to calculate gradient
+           as.numeric()) %>% 
+  group_by(city) %>% 
+  # summarise(avg_composite_index = mean(composite_index),) %>% 
+  summarise(progress = -cor(UTC_time, composite_index)) %>% 
+  top_n(-7) %>% 
+  # mutate(city = fct_reorder(city, sort(progress, decreasing = TRUE))) %>% 
+  mutate(city = fct_reorder(city, desc(progress))) %>% 
+  ggplot(aes(city, progress)) +
+    geom_col() +
+    coord_flip() +
+    labs(x = 'city',
+         y = 'coeff of linear regression between UTC time and composite index',
+         title = '空气质量退步最大的十个城市') +
+    theme_QitianHu
+```
+
+```{r variance analysis}
+
+data_comp %>% 
+  group_by(city) %>% 
+  summarise(variance = var(composite_index)) %>% 
+  top_n(10) %>% 
+  mutate(city = fct_reorder(city, desc(variance))) %>%
+  kable(caption = 'Top 10 Variance of composite index by city')
+
+data_comp %>% 
+  group_by(city) %>% 
+  summarise(variance = var(composite_index)) %>% 
+  top_n(-10) %>% 
+  mutate(city = fct_reorder(city, desc(variance))) %>%
+  kable(caption = 'Bottom 10 Variance of composite index by city')
+
+```
+
+
+
+Data from: https://github.com/modood/Administrative-divisions-of-China/
+```{r province data import and demonstration, echo=FALSE}
+province_data <- read_csv('Data/province.csv') %>% 
+  transform(code_ = code) %>% 
+  rename(province = name)
+
+city_by_prov <- read_csv('Data/city.csv') %>% 
+  mutate(code_ = code %/% 100) %>% 
+  rename("city" = "name") %>% 
+  left_join(province_data, by = "code_") %>% 
+  select("city", "province")
+
+
+data_comp %>% 
+  left_join(city_by_prov, by = "city") %>% 
+  group_by(province) %>% 
+  ggplot(aes(x = province)) +
+    geom_bar() +
+    coord_flip() +
+    labs(x = '省份', 
+       y = '数据点个数') +
+    theme_QitianHu
+
+data_wprov <- data_comp %>% 
+  left_join(city_by_prov, by = "city")
+```
+
+```{r province air quality rank}
+
+data_wprov %>% 
+  group_by(province) %>% 
+  summarise(avg_composite_index = mean(composite_index)) %>% 
+  mutate(province = fct_reorder(province, desc(avg_composite_index))) %>% 
+  ggplot(aes(province, avg_composite_index)) +
+    geom_col() +
+    geom_smooth() +
+    coord_flip() +
+    labs(x = 'province',
+         y = 'All-time Average composite index',
+         title = "rank of mean composite index by province") +
+    theme_QitianHu
+
+```
+
+
+```{r province AQI progression}
+
+data_wprov %>% 
+  mutate(UTC_time = as.POSIXct(time) %>%  # get a unified date to calculate gradient
+           as.numeric()) %>% 
+  group_by(province) %>% 
+  # summarise(avg_composite_index = mean(composite_index),) %>% 
+  summarise(progress = -cor(UTC_time, composite_index)) %>% 
+  mutate(province = fct_reorder(province, desc(progress))) %>% 
+  ggplot(aes(province, progress)) +
+    geom_col() +
+    coord_flip() +
+    labs(x = 'province',
+         y = 'coeff of linear regression between UTC time and composite index',
+         title = '空气质量进步排名') +
+    theme_QitianHu
+
+```
+
+
+```{r variance of AQI}
+data_wprov %>% 
+  group_by(province) %>% 
+  summarise(variance = var(composite_index)) %>% 
+  mutate(province = fct_reorder(province, desc(variance))) %>%
+  kable(caption = 'rank of variance of AQI by province')
+
+```
+
+
+
+
+

@@ -1,0 +1,63 @@
+---
+title: "Analysis-Separate"
+author: "Qitian (Jason) Hu"
+date: "7/29/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(openxlsx)
+library(lubridate)
+library(knitr)
+
+theme_QitianHu <- theme_minimal() +
+  theme(axis.title.x = element_text(face = "bold", size = 12),
+  axis.text.x = element_text(face = "bold", size = 9),
+  axis.text.y = element_text(face = "bold", size = 9),
+  axis.title.y = element_text(face = "bold", size = 12),
+  plot.title = element_text(hjust = 0.5, size = 15, face ='bold'),
+  plot.subtitle = element_text(hjust = 0.5, color = "black", face = "bold"),
+  legend.title = element_text(face = "bold"),
+  text = element_text(family='Kai')
+    )
+```
+
+
+
+```{r Data Import}
+
+data_sep <- read.xlsx("*Aggregate-wrangled-V1.xlsx", sheet=2) %>% 
+  select(-c(5)) %>% 
+  transform(value = as.numeric(value)) %>% 
+  transform(city = ifelse(
+    substr(city, nchar(city),nchar(city)) == "*", 
+    substr(city, 1 ,nchar(city)-1), 
+    city)) %>% 
+    transform(city = ifelse(city == "销江", "镇江", city)) %>% 
+  transform(city = ifelse(city == "循州", "衢州", city)) %>% 
+  transform(city = ifelse(city == "衡州", "衢州", city)) %>% 
+  transform(city = ifelse(city == "准安", "淮安", city)) %>% 
+  transform(city = ifelse(city == "店坊", "廊坊", city)) %>% 
+  transform(city = ifelse(city == "红门", "江门", city)) %>% 
+  transform(city = ifelse(city == "太原银川", "太原", city)) %>% 
+  transform(type = ifelse(type == "CO ", "CO", type)) %>% 
+  mutate(time = ymd(paste(time, '.5', sep = '')))
+  
+  
+data_sep %>% 
+  select()
+  filter(city == '北京') %>% 
+  spread(key = "type", value = "value")
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
