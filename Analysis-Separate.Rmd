@@ -30,8 +30,7 @@ theme_QitianHu <- theme_minimal() +
 data_sep <- read.xlsx("*Aggregate-wrangled-V1.xlsx", sheet=2) %>% 
   select(-c(5)) %>% 
   transform(value = as.numeric(value)) %>% 
-  transform(city = ifelse(
-    substr(city, nchar(city),nchar(city)) == "*", 
+  transform(city = ifelse(substr(city, nchar(city),nchar(city)) == "*", 
     substr(city, 1 ,nchar(city)-1), 
     city)) %>% 
     transform(city = ifelse(city == "销江", "镇江", city)) %>% 
@@ -42,7 +41,8 @@ data_sep <- read.xlsx("*Aggregate-wrangled-V1.xlsx", sheet=2) %>%
   transform(city = ifelse(city == "红门", "江门", city)) %>% 
   transform(city = ifelse(city == "太原银川", "太原", city)) %>% 
   transform(type = ifelse(type == "CO ", "CO", type)) %>% 
-  mutate(time = ymd(paste(time, '.5', sep = '')))
+  mutate(time = ymd(paste(time, '.5', sep = ''))) %>%
+  separate( key = "type", value = "value") # Error!!!!
   
   
 data_sep %>% 

@@ -53,6 +53,12 @@ data_comp %>%
          title = 'Average composite index by time') +
     theme_QitianHu
 
+data_comp %>% 
+  select(time) %>% 
+  mutate(time = fct_reorder(time, desc(time)))
+  unique() %>% 
+  
+
 ```
 
 It turns out that the number of data of each city is highly varied.
@@ -129,6 +135,8 @@ data_comp %>%
          title = '空气质量退步最大的十个城市') +
     theme_QitianHu
 ```
+
+
 
 ```{r variance analysis}
 
